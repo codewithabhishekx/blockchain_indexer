@@ -1,4 +1,4 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool, PoolClient ,Client} from 'pg';
 
 // Database connection type
 export interface DbConnectionInfo {
@@ -58,24 +58,50 @@ export function getConnectionPool(dbConnection: DbConnectionInfo): Pool {
 }
 
 // Test a database connection
-export async function testConnection(dbConnection: DbConnectionInfo): Promise<boolean> {
-  const pool = getConnectionPool(dbConnection);
-  let client: PoolClient | null = null;
+// export async function testConnection(dbConnection: DbConnectionInfo): Promise<boolean> {
+  // const pool = getConnectionPool(dbConnection);
+  // let client: PoolClient | null = null;
   
+  // try {
+  //   // Try to get a client from the pool
+  //   client = await pool.connect();
+  //   // Run a simple query
+  //   await client.query('SELECT 1');
+  //   return true;
+  // } catch (error) {
+  //   console.error('Failed to connect to database:', error);
+  //   return false;
+  // } finally {
+  //   // Release the client back to the pool
+  //   if (client) client.release();
+  // }
+  // Test a database connection
+// }
+export async function testConnection(dbConnection: DbConnectionInfo): Promise<boolean> {
   try {
-    // Try to get a client from the pool
-    client = await pool.connect();
-    // Run a simple query
-    await client.query('SELECT 1');
+    // Create a temporary client instead of using pool for testing
+    const client = new Client({
+      host: dbConnection.host,
+      port: dbConnection.port,
+      database: dbConnection.database,
+      user: dbConnection.username,
+      password: dbConnection.password,
+      connectionTimeoutMillis: 5000, // 5 second timeout
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+
+    await client.connect();
+    await client.query('SELECT NOW()');
+    await client.end();
+    
     return true;
   } catch (error) {
-    console.error('Failed to connect to database:', error);
+    console.error('Database connection test failed:', error);
     return false;
-  } finally {
-    // Release the client back to the pool
-    if (client) client.release();
   }
 }
+
+
 
 // Execute a query on a specific database
 export async function executeQuery(

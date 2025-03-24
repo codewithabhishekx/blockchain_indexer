@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import prisma from '@/app/lib/prisma';
 import { testConnection, mapDbConnection } from '@/app/lib/postgres';
 import { ApiResponse, DbConnectionFormData } from '@/app/lib/types';
+import { authOptions } from '../../auth/[...nextauth]/route';
 
 // Get a specific connection
 export async function GET(
@@ -10,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.id) {
       return NextResponse.json<ApiResponse<null>>({
@@ -63,7 +64,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.id) {
       return NextResponse.json<ApiResponse<null>>({
@@ -131,12 +132,71 @@ export async function PUT(
 }
 
 // Delete a specific connection
+// export async function DELETE(
+//   request: NextRequest,
+//   { params }: { params: Promise<{ id: string }> }
+// ) {
+//   try {
+//     const session = await getServerSession(authOptions);
+    
+//     if (!session || !session.user?.id) {
+//       return NextResponse.json<ApiResponse<null>>({
+//         success: false,
+//         error: 'Unauthorized',
+//       }, { status: 401 });
+//     }
+    
+//     // Check if the connection exists and belongs to the user
+//     const existingConnection = await prisma.dbConnection.findUnique({
+//       where: {
+//         id: (await params).id,
+//         userId: session.user.id,
+//       },
+//     });
+    
+//     if (!existingConnection) {
+//       return NextResponse.json<ApiResponse<null>>({
+//         success: false,
+//         error: 'Connection not found',
+//       }, { status: 404 });
+//     }
+    
+//     // Check if there are any indexing jobs using this connection
+//     const jobsUsingConnection = await prisma.indexingJob.count({
+//       where: { dbConnectionId: (await params).id },
+//     });
+    
+//     if (jobsUsingConnection > 0) {
+//       return NextResponse.json<ApiResponse<null>>({
+//         success: false,
+//         error: 'Cannot delete connection as it is being used by active indexing jobs',
+//       }, { status: 400 });
+//     }
+    
+//     // Delete the connection
+//     await prisma.dbConnection.delete({
+//       where: { id: (await params).id },
+//     });
+    
+//     return NextResponse.json<ApiResponse<{ id: string }>>({
+//       success: true,
+//       data: { id: (await params).id },
+//     });
+//   } catch (error) {
+//     console.error('Error deleting connection:', error);
+//     return NextResponse.json<ApiResponse<null>>({
+//       success: false,
+//       error: 'Failed to delete connection',
+//     }, { status: 500 });
+//   }
+// }
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     
     if (!session || !session.user?.id) {
       return NextResponse.json<ApiResponse<null>>({
@@ -146,41 +206,31 @@ export async function DELETE(
     }
     
     // Check if the connection exists and belongs to the user
-    const existingConnection = await prisma.dbConnection.findUnique({
+    const connection = await prisma.dbConnection.findUnique({
       where: {
         id: (await params).id,
         userId: session.user.id,
       },
     });
     
-    if (!existingConnection) {
+    if (!connection) {
       return NextResponse.json<ApiResponse<null>>({
         success: false,
         error: 'Connection not found',
       }, { status: 404 });
     }
     
-    // Check if there are any indexing jobs using this connection
-    const jobsUsingConnection = await prisma.indexingJob.count({
-      where: { dbConnectionId: (await params).id },
-    });
-    
-    if (jobsUsingConnection > 0) {
-      return NextResponse.json<ApiResponse<null>>({
-        success: false,
-        error: 'Cannot delete connection as it is being used by active indexing jobs',
-      }, { status: 400 });
-    }
-    
     // Delete the connection
     await prisma.dbConnection.delete({
-      where: { id: (await params).id },
+      where: {
+        id: (await params).id,
+      },
     });
     
-    return NextResponse.json<ApiResponse<{ id: string }>>({
+    return NextResponse.json<ApiResponse<null>>({
       success: true,
-      data: { id: (await params).id },
-    });
+      data: null,
+    }, { status: 200 });
   } catch (error) {
     console.error('Error deleting connection:', error);
     return NextResponse.json<ApiResponse<null>>({
@@ -196,8 +246,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession();
-    
+    const session = await getServerSession(authOptions);
+    console.log("Session data", session)
     if (!session || !session.user?.id) {
       return NextResponse.json<ApiResponse<null>>({
         success: false,
